@@ -4,7 +4,7 @@
           based on FUSE sample code by Miklos Szeredi <miklos@szeredi.hu> (GPL)
 
   Build:
-  (install FUSE 2.9.2 first)
+	(install FUSE 2.9.2 first)
   	gcc -Wall testfs.c `pkg-config fuse --cflags --libs` -o testfs
 
   Start:
@@ -20,15 +20,15 @@
 		<mount_dir>/<file_size>x<c1>x<c2>x...x<cN>
 
 		file_size = the size of each virtual file, consisting of an
-                            integer followed by K (for kB), M (for MB) or 
-                            G (for GB).
+                            integer followed by K (for kB), M (for MB), sizes
+			    larger than 16MB per file not working
 
 		cK        = the number of files or subdirectories in layer K
                             of the directory tree
 
 	File paths within the virtual directory tree take the following form:
 
-		<mount_dir>/<file_size>x<c1>x<c2>x...x<cN>/<a1>/<a2>/.../<aN>
+		<mount_dir>/<file_size>x<c1>x<c2>x...x<cN>/<a1>/<a 2>/.../<aN>
 
 		aK = a number from 0 to cK-1
 
@@ -94,6 +94,7 @@ static int parse_root(char *str,struct root_struct *root)
 	static char buf[256];
 	char *p;
 	int val;
+	char suffix[32];
 
 	strcpy(buf,str);
 
@@ -102,23 +103,18 @@ static int parse_root(char *str,struct root_struct *root)
 	p = strtok(buf,"x");
 	if ( p == NULL ) {
 		return -1;
-	} else if ( sscanf(p,"%dk",&val) == 1 ) {
+	} else if ( sscanf(p,"%d%[kK]",&val,&(suffix[0])) == 2 ) {
 		root->fsize = val*1024;
-	} else if ( sscanf(p,"%dK",&val) == 1 ) {
-		root->fsize = val*1024;
-	} else if ( sscanf(p,"%dm",&val) == 1 ) {
+	} else if ( sscanf(p,"%d%[mM]",&val,&(suffix[0])) == 2 ) {
 		root->fsize = val*1024*1024;
-	} else if ( sscanf(p,"%dm",&val) == 1 ) {
-		root->fsize = val*1024*1024;
-	} else if ( sscanf(p,"%dM",&val) == 1 ) {
-		root->fsize = val*1024*1024;
-	} else if ( sscanf(p,"%dg",&val) == 1 ) {
-		root->fsize = val*1024*1024*1024;
-	} else if ( sscanf(p,"%dG",&val) == 1 ) {
-		root->fsize = val*1024*1024*1024;
 	} else if ( sscanf(p,"%d",&val) == 1 ) {
 		root->fsize = val;
 	} else {
+		return -1;
+	}
+
+	// Virtual files larger than 16M don't reliably work
+	if ( root->fsize > 16*1024*1024 ) {
 		return -1;
 	}
 
